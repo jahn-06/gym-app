@@ -15,6 +15,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   async function handleLogin() {
     setErrorMessage(null);
@@ -34,6 +35,28 @@ export default function LoginScreen() {
 
     // Nemusíme sami přesměrovávat na hlavní appku - AuthProvider zachytí
     // změnu session a Stack.Protected v root layoutu to udělá za nás.
+  }
+
+  async function handleDemoLogin() {
+    setErrorMessage(null);
+    setIsDemoLoading(true);
+
+    const demoEmail = process.env.EXPO_PUBLIC_DEMO_EMAIL;
+    const demoPassword = process.env.EXPO_PUBLIC_DEMO_PASSWORD;
+
+    if (!demoEmail || !demoPassword) {
+      setIsDemoLoading(false);
+      setErrorMessage('Demo účet není nastavený.');
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPassword });
+    setIsDemoLoading(false);
+
+    if (error) {
+      setErrorMessage('Přihlášení demo účtu se nezdařilo.');
+    }
+    // Stejně jako u handleLogin - přesměrování řeší AuthProvider automaticky.
   }
 
   return (
@@ -90,6 +113,14 @@ export default function LoginScreen() {
             </ThemedText>
           </Link>
         </ThemedView>
+
+        <Pressable onPress={handleDemoLogin} disabled={isDemoLoading} style={styles.demoButton}>
+          {isDemoLoading ? (
+            <ActivityIndicator color={theme.text} />
+          ) : (
+            <ThemedText type="smallBold">Vyzkoušet demo účet</ThemedText>
+          )}
+        </Pressable>
 
         <ThemedView style={styles.footer}>
           <ThemedText type="default" themeColor="textSecondary">
@@ -153,6 +184,14 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  demoButton: {
+    borderWidth: 1,
+    borderColor: '#D0D2D8',
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.three,
+    alignItems: 'center',
+    marginTop: Spacing.four,
   },
   footer: {
     flexDirection: 'row',
