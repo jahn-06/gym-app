@@ -7,3 +7,14 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+/* Appka má na webu vypadat jako nativní mobilní appka v telefonu, ne jako
+   běžná webová stránka - proto všude skrýváme prohlížečový scrollbar.
+   Scrollování samotné tím není nijak omezené, jen zmizí ten vizuální pruh. */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* starší Edge/IE */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, novější Edge (WebKit/Blink) */
+}
