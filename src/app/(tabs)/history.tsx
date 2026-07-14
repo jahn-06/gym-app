@@ -135,7 +135,7 @@ return (
   );
 }
 
-const WEEKS_IN_CHART = 12;
+const WEEKS_IN_CHART = 8;
 const BAR_MAX_HEIGHT = 200;
 const PAGE_SIZE = 7; // kolik vstupů se zobrazí najednou / kolik se donačte při doscrollování
 
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   bar: {
-    width: 35,
+    width: 25,
     borderRadius: 2,
   },
   chartLabel: {

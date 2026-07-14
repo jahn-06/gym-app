@@ -41,7 +41,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={36} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={30} />
           ),
         }}
       />
@@ -49,7 +49,7 @@ export default function TabsLayout() {
         name="history"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} color={color} size={36} />
+            <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} color={color} size={30} />
           ),
         }}
       />
@@ -57,7 +57,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={36} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={30} />
           ),
         }}
       />

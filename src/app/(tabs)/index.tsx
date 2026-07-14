@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,9 +24,6 @@ export default function HomeScreen() {
   const [membership, setMembership] = useState<ActiveMembership | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // useFocusEffect = znovu načte data pokaždé, když se uživatel na tuhle
-  // záložku vrátí (např. po koupi nové permice v profilu chceme, aby se
-  // tady rovnou projevila, ne až po ručním refreshi appky).
   useFocusEffect(
     useCallback(() => {
       let isCancelled = false;
@@ -35,9 +32,6 @@ export default function HomeScreen() {
         if (!session) return;
         setIsLoading(true);
 
-        // Místo "WHERE status = active" (což je zastaralý uložený text) se
-        // ptáme přímo podle dat: permanentka platí, když už začala
-        // (starts_on <= dnes) a ještě neskončila (ends_on >= dnes).
         const today = todayIso();
         const { data } = await supabase
           .from('memberships')
@@ -65,63 +59,59 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            IRONCORE GYM
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.slogan}>
-            You've got to achieve failure
-          </ThemedText>
-        </ThemedView>
+        <ScrollView contentContainerStyle={styles.scrollContent } showsVerticalScrollIndicator={false} >
+          <ThemedView style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              IRONCORE GYM
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.slogan}>
+              You've got to achieve failure
+            </ThemedText>
+          </ThemedView>
 
-        {isLoading ? (
-          <ActivityIndicator style={{ marginTop: Spacing.six }} color={theme.text} />
-        ) : (
-          <>
-            <ThemedView style={styles.qrWrapper}>
-              {/* Zakódujeme unikátní ID přihlášeného uživatele - to na
-                  recepci later naskenují a spárují s jeho účtem. */}
-              <QRCode value={session?.user.id ?? ''} size={220} />
-            </ThemedView>
-
-            {membership ? (
-              <ThemedView style={[styles.statusBox, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="smallBold">{membership.membership_types?.name}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Platí do {formatDate(membership.ends_on)}
-                </ThemedText>
-
-                {/* Zjednodušená náhrada push notifikace - skutečné push
-                    notifikace nejdou v tomhle prostředí (web/Expo Go)
-                    otestovat, takže místo nich appka rovnou zobrazí
-                    varování, když permanentka brzo vyprší. */}
-                {isExpiringSoon(membership.ends_on) && (
-                  <ThemedText type="small" themeColor="danger" style={{ marginTop: Spacing.one, textAlign: 'center' }}>
-                    {daysUntil(membership.ends_on!) === 0
-                      ? '⚠️ Pozor, permanentka vyprší dnes!'
-                      : `⚠️ Pozor, permanentka vyprší za ${daysUntilLabel(membership.ends_on!)}!`}
-                  </ThemedText>
-                )}
+          {isLoading ? (
+            <ActivityIndicator style={{ marginTop: Spacing.six }} color={theme.text} />
+          ) : (
+            <>
+              <ThemedView style={styles.qrWrapper}>
+                <QRCode value={session?.user.id ?? ''} size={220} />
               </ThemedView>
-            ) : (
-              <ThemedView style={[styles.statusBox, styles.warningBox, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="smallBold">Nemáte aktivní permanentku</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
-                  QR kód funguje jen s platnou permanentkou nebo jednorázovým vstupem.
-                </ThemedText>
-                <Pressable style={styles.buyButton} onPress={() => router.push('/buy-membership')}>
-                  <ThemedText type="smallBold" themeColor="onAccent">
-                    Koupit permanentku
-                  </ThemedText>
-                </Pressable>
-              </ThemedView>
-            )}
 
-            <Pressable style={styles.classesButton} onPress={() => router.push('/classes')}>
-              <ThemedText type="smallBold">Rezervovat lekci</ThemedText>
-            </Pressable>
-          </>
-        )}
+              {membership ? (
+                <ThemedView style={[styles.statusBox, { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="smallBold">{membership.membership_types?.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Platí do {formatDate(membership.ends_on)}
+                  </ThemedText>
+
+                  {isExpiringSoon(membership.ends_on) && (
+                    <ThemedText type="small" themeColor="danger" style={{ marginTop: Spacing.one, textAlign: 'center' }}>
+                      {daysUntil(membership.ends_on!) === 0
+                        ? '⚠️ Pozor, permanentka vyprší dnes!'
+                        : `⚠️ Pozor, permanentka vyprší za ${daysUntilLabel(membership.ends_on!)}!`}
+                    </ThemedText>
+                  )}
+                </ThemedView>
+              ) : (
+                <ThemedView style={[styles.statusBox, styles.warningBox, { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="smallBold">Nemáte aktivní permanentku</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
+                    QR kód funguje jen s platnou permanentkou nebo jednorázovým vstupem.
+                  </ThemedText>
+                  <Pressable style={styles.buyButton} onPress={() => router.push('/buy-membership')}>
+                    <ThemedText type="smallBold" themeColor="onAccent">
+                      Koupit permanentku
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+              )}
+
+              <Pressable style={styles.classesButton} onPress={() => router.push('/classes')}>
+                <ThemedText type="smallBold">Rezervovat lekci</ThemedText>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -148,8 +138,6 @@ function isExpiringSoon(isoDate: string | null): boolean {
   return days >= 0 && days <= EXPIRING_SOON_THRESHOLD_DAYS;
 }
 
-// České skloňování slova "den" podle počtu - čeština má na rozdíl od
-// angličtiny 3 tvary (1 den, 2-4 dny, 0/5+ dní), ne jen jednotné/množné číslo.
 function daysUntilLabel(isoDate: string): string {
   const days = daysUntil(isoDate);
   if (days === 0) return 'dnes';
@@ -164,9 +152,12 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  scrollContent: {
     alignItems: 'center',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.five,
+    paddingBottom: 200,
     gap: Spacing.four,
   },
   title: {
