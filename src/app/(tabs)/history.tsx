@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ActivityIndicator, Animated, Easing, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -50,13 +50,13 @@ function StreakBadge({ streak, weeklyCounts }: { streak: number; weeklyCounts: W
   const theme = useTheme();
   const tier = STREAK_TIERS.find((t) => streak >= t.minStreak);
 
-// breatheAnim = velikost IKONKY v čase. Začíná rovnou na 1 (žádné
+  // breatheAnim = velikost IKONKY v čase. Začíná rovnou na 1 (žádné
   // "vyskočení z ničeho"), a hned od začátku plynule pulzuje mezi
-  // 90 % a 115 % velikosti - efekt "dýchání". Easing.inOut(Easing.sin)
+  // 97 % a 115 % velikosti - efekt "dýchání". Easing.inOut(Easing.sin)
   // zajišťuje, že zrychlování/zpomalování je hladké, ne trhané.
   const breatheAnim = useRef(new Animated.Value(1)).current;
 
-useEffect(() => {
+  useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(breatheAnim, {
@@ -75,9 +75,9 @@ useEffect(() => {
     ).start();
   }, []);
 
-return (
+  return (
     <ThemedView style={styles.streakWrapper}>
-<ThemedView
+      <ThemedView
         style={[
           styles.streakBadge,
           {
@@ -113,8 +113,8 @@ return (
       </ThemedText>
 
       <ThemedView style={styles.dotsRow}>
-        {weeklyCounts.map((week, i) => {
-          const isCurrentWeek = i === weeklyCounts.length - 1;
+        {weeklyCounts.slice(-8).map((week, i, arr) => {
+          const isCurrentWeek = i === arr.length - 1;
           const visited = week.count > 0;
           return (
             <ThemedView
@@ -135,8 +135,13 @@ return (
   );
 }
 
-const WEEKS_IN_CHART = 8;
+// TOTAL_WEEKS = kolik týdnů dozadu appka počítá a nabízí k prohlédnutí
+// (celý rok). VISIBLE_WEEKS jen orientačně říká, kolik sloupců se zhruba
+// vejde na obrazovku najednou - podle toho volíme šířku jednoho sloupce.
+const TOTAL_WEEKS = 52;
+const VISIBLE_WEEKS = 8;
 const BAR_MAX_HEIGHT = 200;
+const COLUMN_WIDTH = 32;
 const PAGE_SIZE = 7; // kolik vstupů se zobrazí najednou / kolik se donačte při doscrollování
 
 export default function HistoryScreen() {
@@ -146,6 +151,7 @@ export default function HistoryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const chartScrollRef = useRef<ScrollView>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,7 +200,7 @@ export default function HistoryScreen() {
     }, 300);
   }
 
-return (
+  return (
     <ThemedView style={styles.container}>
       {/* SafeAreaView č.2 (VNĚJŠÍ) - obaluje úplně vše, řeší skutečné
           okraje obrazovky (nahoře, dole, po stranách) pro celý obsah. */}
@@ -223,31 +229,49 @@ return (
                     <StreakBadge streak={streak} weeklyCounts={weeklyCounts} />
 
                     <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.four }}>
-                      Vstupy za posledních {WEEKS_IN_CHART} týdnů
+                      Vstupy za posledních {TOTAL_WEEKS} týdnů · potáhněte pro starší záznamy
                     </ThemedText>
-                    <View style={styles.chartRow}>
-                      {weeklyCounts.map((week, i) => {
-                        const showLabel = i % 1 === 0 || i === weeklyCounts.length - 1;
-                        return (
-                          <View key={week.weekStartIso} style={styles.chartColumn}>
-                            <View style={styles.barTrack}>
-                              <View
-                                style={[
-                                  styles.bar,
-                                  {
-                                    height: Math.max((week.count / maxCount) * BAR_MAX_HEIGHT, week.count > 0 ? 4 : 0),
-                                    backgroundColor: theme.accent,
-                                  },
-                                ]}
-                              />
+
+                    {/* Vodorovně rolovatelný graf - ve výchozím stavu je
+                        odscrollovaný úplně doprava (nejnovější týdny),
+                        potažením doleva se odkrývá starší historie. */}
+                    <ScrollView
+                      ref={chartScrollRef}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{ marginTop: Spacing.two, width: '100%' }}
+                      // Jakmile je obsah (všech 52 sloupců) vykreslený a
+                      // známe jeho skutečnou šířku, tiše (bez animace)
+                      // odscrollujeme až na konec - takže uživatel na
+                      // první pohled uvidí to samé, co viděl doteď.
+                      onContentSizeChange={() => chartScrollRef.current?.scrollToEnd({ animated: false })}>
+                      <View style={styles.chartRow}>
+                        {weeklyCounts.map((week, i) => {
+                          const showLabel = i % 4 === 0 || i === weeklyCounts.length - 1;
+                          return (
+                            <View key={week.weekStartIso} style={styles.chartColumn}>
+                              <View style={styles.barTrack}>
+                                <View
+                                  style={[
+                                    styles.bar,
+                                    {
+                                      height: Math.max(
+                                        (week.count / maxCount) * BAR_MAX_HEIGHT,
+                                        week.count > 0 ? 4 : 0
+                                      ),
+                                      backgroundColor: theme.accent,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <ThemedText type="small" themeColor="textSecondary" style={styles.chartLabel}>
+                                {showLabel ? week.label : ''}
+                              </ThemedText>
                             </View>
-                            <ThemedText type="small" themeColor="textSecondary" style={styles.chartLabel}>
-                              {showLabel ? week.label : ''}
-                            </ThemedText>
-                          </View>
-                        );
-                      })}
-                    </View>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
                   </ThemedView>
                 </SafeAreaView>
 
@@ -283,7 +307,6 @@ return (
     </ThemedView>
   );
 }
-
 
 function formatDateTime(isoDate: string): { date: string; time: string } {
   const d = new Date(isoDate);
@@ -326,17 +349,17 @@ function computeWeeklyStats(checkIns: CheckIn[]) {
     countsByWeek.set(weekKey, (countsByWeek.get(weekKey) ?? 0) + 1);
   }
 
-  // Posledních N týdnů pro graf, seřazené od nejstaršího k nejnovějšímu.
-const weeklyCounts = Array.from({ length: WEEKS_IN_CHART }, (_, i) => {
-  const weeksAgo = WEEKS_IN_CHART - 1 - i;
-  const weekStart = addDays(thisMonday, -weeksAgo * 7);
-  const weekStartIso = dateToIso(weekStart);
-  return {
-    weekStartIso,
-    count: countsByWeek.get(weekStartIso) ?? 0,
-    label: i === WEEKS_IN_CHART - 1 ? 'Teď' : `W${i + 1}`,
-  };
-});
+  // Posledních TOTAL_WEEKS týdnů pro graf, seřazené od nejstaršího k nejnovějšímu.
+  const weeklyCounts = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
+    const weeksAgo = TOTAL_WEEKS - 1 - i;
+    const weekStart = addDays(thisMonday, -weeksAgo * 7);
+    const weekStartIso = dateToIso(weekStart);
+    return {
+      weekStartIso,
+      count: countsByWeek.get(weekStartIso) ?? 0,
+      label: i === TOTAL_WEEKS - 1 ? 'Teď' : `W${i + 1}`,
+    };
+  });
 
   // Streak: kolik týdnů v řadě má aspoň 1 vstup. Rozjetý (ještě neskončený)
   // aktuální týden bereme shovívavě - pokud v něm ještě nic není, prostě
@@ -393,14 +416,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   chartRow: {
-    width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
   chartColumn: {
     alignItems: 'center',
-    width: `${100 / WEEKS_IN_CHART}%`,
+    width: COLUMN_WIDTH,
   },
   barTrack: {
     height: BAR_MAX_HEIGHT,
