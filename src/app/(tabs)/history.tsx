@@ -135,10 +135,12 @@ function StreakBadge({ streak, weeklyCounts }: { streak: number; weeklyCounts: W
   );
 }
 
-// TOTAL_WEEKS = kolik týdnů dozadu appka počítá a nabízí k prohlédnutí
-// (celý rok). VISIBLE_WEEKS jen orientačně říká, kolik sloupců se zhruba
-// vejde na obrazovku najednou - podle toho volíme šířku jednoho sloupce.
-const TOTAL_WEEKS = 52;
+// MIN_WEEKS = i úplně nový účet uvidí graf zpětně aspoň na tolik týdnů.
+// MAX_WEEKS = i letitý účet appka "neukáže" víc než tolik týdnů dozadu.
+// Skutečný počet zobrazených týdnů se dopočítává dynamicky mezi těmito
+// dvěma mezemi podle data prvního zaznamenaného vstupu (viz computeWeeklyStats).
+const MIN_WEEKS = 8;
+const MAX_WEEKS = 52;
 const VISIBLE_WEEKS = 8;
 const BAR_MAX_HEIGHT = 200;
 const COLUMN_WIDTH = 32;
@@ -229,7 +231,7 @@ export default function HistoryScreen() {
                     <StreakBadge streak={streak} weeklyCounts={weeklyCounts} />
 
                     <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.four }}>
-                      Vstupy za posledních {TOTAL_WEEKS} týdnů · potáhněte pro starší záznamy
+                      Vstupy za posledních {weeklyCounts.length} týdnů · potáhněte pro starší záznamy
                     </ThemedText>
 
                     {/* Vodorovně rolovatelný graf - ve výchozím stavu je
@@ -349,15 +351,33 @@ function computeWeeklyStats(checkIns: CheckIn[]) {
     countsByWeek.set(weekKey, (countsByWeek.get(weekKey) ?? 0) + 1);
   }
 
-  // Posledních TOTAL_WEEKS týdnů pro graf, seřazené od nejstaršího k nejnovějšímu.
-  const weeklyCounts = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
-    const weeksAgo = TOTAL_WEEKS - 1 - i;
+  // Kolik týdnů dozadu graf zobrazí: podle toho, jak dávno je nejstarší
+  // zaznamenaný vstup - ale nikdy míň než MIN_WEEKS (i nový účet ať má
+  // rozumně "plný" graf) a nikdy víc než MAX_WEEKS (ať appka jednou
+  // neukazuje historii na 5 let dozadu).
+  let weeksToShow = MIN_WEEKS;
+  if (checkIns.length > 0) {
+    const earliestIso = checkIns.reduce(
+      (earliest, c) => (c.checked_in_at < earliest ? c.checked_in_at : earliest),
+      checkIns[0].checked_in_at
+    );
+    const earliestMonday = mondayOf(new Date(earliestIso));
+    const weeksSinceEarliest = Math.round(
+      (thisMonday.getTime() - earliestMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    );
+    weeksToShow = weeksSinceEarliest + 1; // +1, ať se počítá i aktuální týden
+  }
+  weeksToShow = Math.min(Math.max(weeksToShow, MIN_WEEKS), MAX_WEEKS);
+
+  // Posledních "weeksToShow" týdnů pro graf, seřazené od nejstaršího k nejnovějšímu.
+  const weeklyCounts = Array.from({ length: weeksToShow }, (_, i) => {
+    const weeksAgo = weeksToShow - 1 - i;
     const weekStart = addDays(thisMonday, -weeksAgo * 7);
     const weekStartIso = dateToIso(weekStart);
     return {
       weekStartIso,
       count: countsByWeek.get(weekStartIso) ?? 0,
-      label: i === TOTAL_WEEKS - 1 ? 'Teď' : `W${i + 1}`,
+      label: i === weeksToShow - 1 ? 'Teď' : `W${i + 1}`,
     };
   });
 
@@ -434,6 +454,7 @@ const styles = StyleSheet.create({
   chartLabel: {
     marginTop: Spacing.one,
     fontSize: 10,
+    height: 14,
   },
   row: {
     flexDirection: 'row',
