@@ -121,7 +121,7 @@ export default function RegisterScreen() {
             />
 
             <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.two }}>
-              Osobní údaje (nepovinné, doplní se rovnou do profilu)
+              Osobní údaje 
             </ThemedText>
 
             <TextInput

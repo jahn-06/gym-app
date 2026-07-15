@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   bar: {
-    width: 25,
+    width: 18,
     borderRadius: 2,
   },
   chartLabel: {
