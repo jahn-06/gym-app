@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
@@ -40,10 +41,18 @@ export default function RegisterScreen() {
     // automaticky postará o vytvoření řádku v tabulce profiles - a pokud
     // jsme mu přes "options.data" poslali referral kód, i o spárování
     // s tím, kdo nového uživatele pozval.
+    //
+    // emailRedirectTo výslovně řekne Supabase, kam má potvrzovací odkaz
+    // v e-mailu vést - Linking.createURL to spočítá správně podle toho,
+    // kde appka zrovna běží (lokálně i na ostré adrese na Renderu),
+    // takže se to nespoléhá jen na "Site URL" nastavení v Supabase.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: referralCode ? { data: { referral_code: referralCode.trim().toUpperCase() } } : undefined,
+      options: {
+        emailRedirectTo: Linking.createURL('/confirm-email'),
+        data: referralCode ? { referral_code: referralCode.trim().toUpperCase() } : undefined,
+      },
     });
 
     setIsLoading(false);

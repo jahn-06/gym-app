@@ -42,10 +42,11 @@ function RootNavigator() {
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
 
-      {/* /demo a /reset-password nemají žádný guard - jsou dostupné vždy,
-          ať je uživatel přihlášený nebo ne. */}
+      {/* /demo, /reset-password a /confirm-email nemají žádný guard - jsou
+          dostupné vždy, ať je uživatel přihlášený nebo ne. */}
       <Stack.Screen name="demo" />
       <Stack.Screen name="reset-password" />
+      <Stack.Screen name="confirm-email" />
     </Stack>
   );
 }
