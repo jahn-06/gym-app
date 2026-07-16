@@ -44,7 +44,11 @@ export default function BuyMembershipScreen() {
       setIsLoading(true);
 
       const [{ data: typesData }, { data: existingData }] = await Promise.all([
-        supabase.from('membership_types').select('id, name, price_czk, duration_days').order('sort_order'),
+        supabase
+          .from('membership_types')
+          .select('id, name, price_czk, duration_days')
+          .eq('is_purchasable', true)
+          .order('sort_order'),
         // Zajímá nás poslední permanentka, která ještě neskončila (podle
         // skutečného data, ne podle uloženého status textu) - jen taková
         // může blokovat začátek nové.
