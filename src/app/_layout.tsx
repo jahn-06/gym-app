@@ -22,9 +22,6 @@ function RootNavigator() {
   const { session, isLoading } = useAuth();
 
   useEffect(() => {
-    // Jakmile víme, jestli je uživatel přihlášený, schováme úvodní
-    // splash screen (do té doby by uživatel na zlomek sekundy uviděl
-    // "blik" mezi login a home obrazovkou).
     if (!isLoading) {
       SplashScreen.hideAsync();
     }
@@ -36,9 +33,6 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {/* Stack.Protected = tuhle skupinu obrazovek smí vidět jen uživatel,
-          který splňuje podmínku "guard". Když podmínka neplatí, expo-router
-          automaticky přesměruje na první dostupnou "nechráněnou" skupinu. */}
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
@@ -52,8 +46,6 @@ function RootNavigator() {
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
 
-      {/* /demo, /reset-password a /confirm-email nemají žádný guard - jsou
-          dostupné vždy, ať je uživatel přihlášený nebo ne. */}
       <Stack.Screen name="demo" />
       <Stack.Screen name="reset-password" />
       <Stack.Screen name="confirm-email" />
@@ -61,12 +53,14 @@ function RootNavigator() {
   );
 }
 
-// 3 úrovně podle šířky okna:
-// - PHONE: appka přes celou obrazovku, žádný dekorativní rámeček
-// - MEDIUM: rámeček zůstává, ale bez postranních panelů (nevejdou se)
-// - WIDE (>= WIDE_MIN_WIDTH): rámeček + oba postranní panely
-const PHONE_MAX_WIDTH = 639;
-const WIDE_MIN_WIDTH = 1000;
+// Poměr stran telefonu (šířka:výška) - reálný telefon je zhruba 9:19.5.
+const PHONE_ASPECT = 9 / 19.5;
+const BOX_MAX_WIDTH = 420;
+const OUTER_PADDING = 24;
+const GAP_BETWEEN_PANELS = 48;
+const SIDE_PANEL_WIDTH = 280;
+const WIDE_MIN_WIDTH = 1000; // od kdy je místo na postranní panely
+const THIN_BORDER_BREAKPOINT = 640; // pod touhle šířkou je rámeček tenčí
 
 const TECHS = ['React Native + Expo', 'TypeScript', 'Supabase', 'Expo Router'];
 const TIPS = [
@@ -133,9 +127,8 @@ function RightPanel() {
   );
 }
 
-// Na telefonu se místo postranních panelů zobrazí jen malé plovoucí
-// tlačítko (ⓘ) - po klepnutí vyjede zdola list se vším obsahem
-// pohromadě (technologie + návod), ať appka samotná má co nejvíc místa.
+// Když se nevejdou postranní panely (užší okno), nabídneme stejný obsah
+// přes plovoucí ⓘ tlačítko - klepnutím vyjede zdola list se vším pohromadě.
 function InfoButtonAndSheet() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -170,14 +163,7 @@ function InfoButtonAndSheet() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { width } = useWindowDimensions();
-
-  const isWeb = Platform.OS === 'web';
-  const isPhoneWidth = width <= PHONE_MAX_WIDTH;
-  const isWideWidth = width >= WIDE_MIN_WIDTH;
-  const showFrame = isWeb && !isPhoneWidth;
-  const showSidePanels = isWeb && isWideWidth;
-  const showInfoButton = isWeb && isPhoneWidth;
+  const { width, height } = useWindowDimensions();
 
   const content = (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -188,39 +174,89 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 
-  // Na nativním telefonu (skutečná appka nainstalovaná z App Store/Google
-  // Play, ne web v prohlížeči) appka vždy zabírá celou obrazovku - žádné
-  // z tohohle se jí netýká.
-  if (!isWeb) {
+  // Na nativní appce (nainstalované z App Store/Google Play) žádný z
+  // tohohle "telefon v telefonu" efektu nedává smysl - appka zabírá
+  // celou obrazovku, jak má.
+  if (Platform.OS !== 'web') {
     return content;
   }
 
-  // Na webu, ale v úzkém okně (typicky mobilní prohlížeč) - appka přes
-  // celou obrazovku, žádný dekorativní rámeček, jen plovoucí info tlačítko.
-  if (!showFrame) {
-    return (
-      <View style={styles.phoneFullBleed}>
-        {content}
-        {showInfoButton && <InfoButtonAndSheet />}
-      </View>
-    );
-  }
+  const showSidePanels = width >= WIDE_MIN_WIDTH;
+  const isThinBorder = width < THIN_BORDER_BREAKPOINT;
+
+  // Kolik místa má box na appku k dispozici na ŠÍŘKU - liší se podle
+  // toho, jestli se vedle něj vejdou i postranní panely.
+  const availableWidthForBox = showSidePanels
+    ? width - OUTER_PADDING * 2 - GAP_BETWEEN_PANELS * 2 - SIDE_PANEL_WIDTH * 2
+    : width - OUTER_PADDING * 2;
+
+  // Kolik místa má box k dispozici na VÝŠKU.
+  const availableHeightForBox = height - OUTER_PADDING * 2;
+
+  // Box musí zůstat v POMĚRU STRAN 9:19.5 a zároveň se vejít jak na
+  // šířku, tak na výšku - vezmeme tu "přísnější" (menší) z obou možností.
+  // Tohle přesně řeší ořezávání na nižších obrazovkách (15" monitor).
+  const widthLimitedByHeight = availableHeightForBox * PHONE_ASPECT;
+  const boxWidth = Math.max(Math.min(BOX_MAX_WIDTH, availableWidthForBox, widthLimitedByHeight), 240);
+  const boxHeight = boxWidth / PHONE_ASPECT;
+
+  const borderWidth = isThinBorder ? 4 : 10;
+  const borderRadius = isThinBorder ? 24 : 44;
 
   return (
     <View style={styles.webOuter}>
       <View style={styles.webRow}>
         {showSidePanels && <LeftPanel />}
-        <View style={styles.webPhoneBox}>{content}</View>
+
+        <View
+          style={[
+            styles.webPhoneBox,
+            {
+              width: boxWidth,
+              height: boxHeight,
+              borderWidth,
+              borderRadius,
+            },
+          ]}>
+          {content}
+        </View>
+
         {showSidePanels && <RightPanel />}
       </View>
+
+      {/* Info tlačítko se objeví, kdykoliv nejsou vidět postranní panely -
+          ať je obsah (technologie + návod) pořád dostupný, jen jinou cestou. */}
+      {!showSidePanels && <InfoButtonAndSheet />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  phoneFullBleed: {
+  webOuter: {
     flex: 1,
     backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: OUTER_PADDING,
+  },
+  webRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: GAP_BETWEEN_PANELS,
+    maxWidth: 1400,
+    width: '100%',
+  },
+  webPhoneBox: {
+    borderColor: '#1a1a1a',
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.6,
+    shadowRadius: 50,
+    elevation: 24,
+    flexShrink: 0,
   },
   infoButton: {
     position: 'absolute',
@@ -265,40 +301,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-  webOuter: {
-    flex: 1,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  webRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 48,
-    maxWidth: 1400,
-    width: '100%',
-  },
-  webPhoneBox: {
-    width: '100%',
-    maxWidth: 420,
-    aspectRatio: 9 / 19.5,
-    borderRadius: 44,
-    borderWidth: 10,
-    borderColor: '#1a1a1a',
-    overflow: 'hidden',
-    backgroundColor: '#000000',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.6,
-    shadowRadius: 50,
-    elevation: 24,
-    flexShrink: 0,
-  },
   sidePanel: {
     flex: 1,
-    maxWidth: 280,
+    maxWidth: SIDE_PANEL_WIDTH,
   },
   brandTitle: {
     color: '#FFFFFF',
