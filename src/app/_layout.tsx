@@ -15,6 +15,7 @@ import {
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/context/auth';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -55,12 +56,20 @@ function RootNavigator() {
 
 // Poměr stran telefonu (šířka:výška) - reálný telefon je zhruba 9:19.5.
 const PHONE_ASPECT = 9 / 19.5;
+
+// Appka je "navržená" na téhle šířce (běžná šířka telefonu jako iPhone).
+// Celý obsah appky vykreslíme na plátně přesně téhle velikosti a pak ho
+// jako CELEK zmenšíme/zvětšíme (transform scale) na skutečnou velikost
+// boxu - díky tomu se nic uvnitř appky nikdy nemačká ani nepřerovnává,
+// jen se to zvětší/zmenší jako fotka.
+const REFERENCE_WIDTH = 390;
+const REFERENCE_HEIGHT = REFERENCE_WIDTH / PHONE_ASPECT;
+
 const BOX_MAX_WIDTH = 420;
-const OUTER_PADDING = 24;
 const GAP_BETWEEN_PANELS = 48;
 const SIDE_PANEL_WIDTH = 280;
 const WIDE_MIN_WIDTH = 1000; // od kdy je místo na postranní panely
-const THIN_BORDER_BREAKPOINT = 640; // pod touhle šířkou je rámeček tenčí
+const THIN_BORDER_BREAKPOINT = 640; // pod touhle šířkou je rámeček tenčí a okraje menší
 
 const TECHS = ['React Native + Expo', 'TypeScript', 'Supabase', 'Expo Router'];
 const TIPS = [
@@ -127,8 +136,6 @@ function RightPanel() {
   );
 }
 
-// Když se nevejdou postranní panely (užší okno), nabídneme stejný obsah
-// přes plovoucí ⓘ tlačítko - klepnutím vyjede zdola list se vším pohromadě.
 function InfoButtonAndSheet() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -174,58 +181,78 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 
-  // Na nativní appce (nainstalované z App Store/Google Play) žádný z
-  // tohohle "telefon v telefonu" efektu nedává smysl - appka zabírá
-  // celou obrazovku, jak má.
   if (Platform.OS !== 'web') {
     return content;
   }
 
+  // Na webu appku obalíme vlastním SafeAreaProvider s PEVNĚ danými rozměry
+  // (přesně velikost našeho "plátna" REFERENCE_WIDTH x REFERENCE_HEIGHT,
+  // bez žádného odsazení). Bez tohohle by si appka počítala bezpečné
+  // okraje (např. místo pro spodní lištu) podle SKUTEČNÉ velikosti okna
+  // prohlížeče - což je při zmenšeném/zvětšeném plátně špatně a
+  // způsobovalo to, že se spodní lišta "posunula" mimo viditelnou oblast.
+  const webContent = (
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: REFERENCE_WIDTH, height: REFERENCE_HEIGHT },
+        insets: { top: 0, left: 0, right: 0, bottom: 0 },
+      }}>
+      {content}
+    </SafeAreaProvider>
+  );
+
   const showSidePanels = width >= WIDE_MIN_WIDTH;
-  const isThinBorder = width < THIN_BORDER_BREAKPOINT;
+  const isSmallScreen = width < THIN_BORDER_BREAKPOINT;
 
-  // Kolik místa má box na appku k dispozici na ŠÍŘKU - liší se podle
-  // toho, jestli se vedle něj vejdou i postranní panely.
+  // Na malé obrazovce chceme skoro žádný černý okraj (box ať využije
+  // skoro celé okno), na velké necháváme štědřejší odstup.
+  const outerPadding = isSmallScreen ? 8 : 24;
+
   const availableWidthForBox = showSidePanels
-    ? width - OUTER_PADDING * 2 - GAP_BETWEEN_PANELS * 2 - SIDE_PANEL_WIDTH * 2
-    : width - OUTER_PADDING * 2;
+    ? width - outerPadding * 2 - GAP_BETWEEN_PANELS * 2 - SIDE_PANEL_WIDTH * 2
+    : width - outerPadding * 2;
+  const availableHeightForBox = height - outerPadding * 2;
 
-  // Kolik místa má box k dispozici na VÝŠKU.
-  const availableHeightForBox = height - OUTER_PADDING * 2;
-
-  // Box musí zůstat v POMĚRU STRAN 9:19.5 a zároveň se vejít jak na
-  // šířku, tak na výšku - vezmeme tu "přísnější" (menší) z obou možností.
-  // Tohle přesně řeší ořezávání na nižších obrazovkách (15" monitor).
+  // Box musí zůstat v poměru 9:19.5 a vejít se zároveň na šířku i výšku -
+  // vezmeme tu "přísnější" (menší) z obou možností.
   const widthLimitedByHeight = availableHeightForBox * PHONE_ASPECT;
   const boxWidth = Math.max(Math.min(BOX_MAX_WIDTH, availableWidthForBox, widthLimitedByHeight), 240);
   const boxHeight = boxWidth / PHONE_ASPECT;
 
-  const borderWidth = isThinBorder ? 4 : 10;
-  const borderRadius = isThinBorder ? 24 : 44;
+  // Poměr, o kolik se plátno appky (390px) zvětší/zmenší, aby přesně
+  // vyplnilo box. Např. box 300px široký -> scale 0.77 -> appka se
+  // zobrazí jako zmenšená fotka sebe sama, ne přerovnaná/namačkaná.
+  const scale = boxWidth / REFERENCE_WIDTH;
+
+  const borderWidth = isSmallScreen ? 4 : 10;
+  const borderRadius = isSmallScreen ? 24 : 44;
 
   return (
-    <View style={styles.webOuter}>
+    <View style={[styles.webOuter, { padding: outerPadding }]}>
       <View style={styles.webRow}>
         {showSidePanels && <LeftPanel />}
 
         <View
           style={[
             styles.webPhoneBox,
-            {
-              width: boxWidth,
-              height: boxHeight,
-              borderWidth,
-              borderRadius,
-            },
+            { width: boxWidth, height: boxHeight, borderWidth, borderRadius },
           ]}>
-          {content}
+          <View
+            style={{
+              width: REFERENCE_WIDTH,
+              height: REFERENCE_HEIGHT,
+              transform: [{ scale }],
+              // @ts-expect-error transformOrigin je web-only vlastnost (funguje
+              // díky react-native-web), TypeScript definice pro RN ji nezná.
+              transformOrigin: 'top left',
+            }}>
+            {webContent}
+          </View>
         </View>
 
         {showSidePanels && <RightPanel />}
       </View>
 
-      {/* Info tlačítko se objeví, kdykoliv nejsou vidět postranní panely -
-          ať je obsah (technologie + návod) pořád dostupný, jen jinou cestou. */}
       {!showSidePanels && <InfoButtonAndSheet />}
     </View>
   );
@@ -237,7 +264,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: OUTER_PADDING,
   },
   webRow: {
     flexDirection: 'row',
