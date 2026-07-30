@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { Platform, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/context/auth';
@@ -53,7 +53,8 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  return (
+
+  const content = (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
@@ -61,4 +62,49 @@ export default function RootLayout() {
       </AuthProvider>
     </ThemeProvider>
   );
+
+  // Na nativním telefonu appka prostě zabírá celou obrazovku, žádný
+  // "telefon v telefonu" efekt nedává smysl - tohle je jen pro web,
+  // když appku někdo otevře přímo v prohlížeči mimo náš <iframe>
+  // rámeček na portfoliu.
+  if (Platform.OS !== 'web') {
+    return content;
+  }
+
+  return (
+    <View style={styles.webOuter}>
+      <View style={styles.webPhoneBox}>{content}</View>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  // Celá plocha prohlížeče - čistě černé pozadí, appka (telefonní box)
+  // vystředěná uprostřed. Sem se dá později přidat i doprovodný grafický
+  // obsah okolo (název appky, popisky funkcí atd.).
+  webOuter: {
+    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  // Samotný "telefon" - poměr stran cca 9:19.5 jako skutečné zařízení,
+  // maxWidth omezuje, aby to na širokém monitoru nebylo obří, rámeček +
+  // stín dělají dojem fyzického telefonu.
+  webPhoneBox: {
+    width: '100%',
+    maxWidth: 420,
+    aspectRatio: 9 / 19.5,
+    borderRadius: 44,
+    borderWidth: 10,
+    borderColor: '#1a1a1a',
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.6,
+    shadowRadius: 50,
+    elevation: 24,
+  },
+});
