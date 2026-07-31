@@ -46,7 +46,15 @@ const STREAK_TIERS: {
   { minStreak: 1, icon: '🔥', badgeSize: 70, iconSize: 28, numberSize: 22, bg: '#FDBA74', text: '#431407' },
 ];
 
-function StreakBadge({ streak, weeklyCounts }: { streak: number; weeklyCounts: WeekCount[] }) {
+function StreakBadge({
+  streak,
+  weeklyCounts,
+  hasHistory,
+}: {
+  streak: number;
+  weeklyCounts: WeekCount[];
+  hasHistory: boolean;
+}) {
   const theme = useTheme();
   const tier = STREAK_TIERS.find((t) => streak >= t.minStreak);
 
@@ -74,6 +82,21 @@ function StreakBadge({ streak, weeklyCounts }: { streak: number; weeklyCounts: W
       ])
     ).start();
   }, []);
+
+  // Zpráva pod odznakem - rozlišujeme 3 stavy:
+  // 1) streak > 0 - normální hlášení o délce streaku
+  // 2) streak === 0, ale uživatel NĚKDY měl vstup - streak se přerušil,
+  //    zobrazíme empatičtější "je nám líto" hlášku se smutným smajlíkem
+  // 3) streak === 0 a uživatel NIKDY neměl vstup - úplně nový účet,
+  //    povzbuzující hláška bez lítosti (není co litovat).
+  let message: string;
+  if (streak > 0) {
+    message = streak === 1 ? 'týden v řadě aspoň s 1 vstupem' : 'týdny v řadě aspoň s 1 vstupem';
+  } else if (hasHistory) {
+    message = '😔 To je nám líto, že to nevyšlo. Obnovte svůj streak už tento týden!';
+  } else {
+    message = 'Začněte streak už tento týden!';
+  }
 
   return (
     <ThemedView style={styles.streakWrapper}>
@@ -105,11 +128,7 @@ function StreakBadge({ streak, weeklyCounts }: { streak: number; weeklyCounts: W
       </ThemedView>
 
       <ThemedText themeColor="textSecondary" type="small" style={{ marginTop: Spacing.two, textAlign: 'center' }}>
-        {streak === 0
-          ? 'Začněte streak už tento týden!'
-          : streak === 1
-            ? 'týden v řadě aspoň s 1 vstupem'
-            : 'týdny v řadě aspoň s 1 vstupem'}
+        {message}
       </ThemedText>
 
       <ThemedView style={styles.dotsRow}>
@@ -228,7 +247,7 @@ export default function HistoryScreen() {
                   </ThemedText>
 
                   <ThemedView style={[styles.statsCard, { backgroundColor: theme.backgroundElement }]}>
-                    <StreakBadge streak={streak} weeklyCounts={weeklyCounts} />
+                    <StreakBadge streak={streak} weeklyCounts={weeklyCounts} hasHistory={checkIns.length > 0} />
 
                     <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.four }}>
                       Vstupy za posledních {weeklyCounts.length} týdnů · potáhněte pro starší záznamy

@@ -75,15 +75,16 @@ const TECHS = ['React Native + Expo', 'TypeScript', 'Supabase', 'Expo Router'];
 const TIPS = [
   'Přihlaste se přes připravený demo účet',
   'Prohlédněte si QR kód pro vstup do fitka',
-  'Zkuste zarezervovat lekci nebo koupit permanentku',
-  'Podívejte se na streak a statistiky návštěvnosti',
+  'Zarezervujte si lekci na domovské stránce',
+  'Podívejte se na streak / statistiky / záznamy návštěvnosti',
+  'V profil se podívejte na osobní údaje',
+  'Kupte si permanentku a doporučte IRONCORE svým přátelům'
 ];
 
 function BrandHeader() {
   return (
     <>
-      <Text style={styles.brandTitle}>IRON CORE</Text>
-      <Text style={styles.brandSlogan}>Síla se nerodí, buduje se</Text>
+      <Text style={styles.brandTitle}>IRONCORE GYM</Text>
     </>
   );
 }
@@ -191,13 +192,13 @@ export default function RootLayout() {
   // okraje (např. místo pro spodní lištu) podle SKUTEČNÉ velikosti okna
   // prohlížeče - což je při zmenšeném/zvětšeném plátně špatně a
   // způsobovalo to, že se spodní lišta "posunula" mimo viditelnou oblast.
-  const webContent = (
+const webContent = (
     <SafeAreaProvider
       initialMetrics={{
         frame: { x: 0, y: 0, width: REFERENCE_WIDTH, height: REFERENCE_HEIGHT },
         insets: { top: 0, left: 0, right: 0, bottom: 0 },
       }}>
-      {content}
+      <View style={styles.webContentPadding}>{content}</View>
     </SafeAreaProvider>
   );
 
@@ -232,22 +233,51 @@ export default function RootLayout() {
       <View style={styles.webRow}>
         {showSidePanels && <LeftPanel />}
 
-        <View
-          style={[
-            styles.webPhoneBox,
-            { width: boxWidth, height: boxHeight, borderWidth, borderRadius },
-          ]}>
+        {/* phoneShell NEMÁ overflow:hidden - potřebujeme, aby postranní
+            tlačítka mohla mírně přečnívat mimo okraj rámečku, aniž by se
+            useřízla (to by se stalo, kdyby byla dovnitř webPhoneBox,
+            který kvůli zaobleným rohům obrazovky overflow:hidden mít musí). */}
+        <View style={[styles.phoneShell, { width: boxWidth, height: boxHeight }]}>
           <View
-            style={{
-              width: REFERENCE_WIDTH,
-              height: REFERENCE_HEIGHT,
-              transform: [{ scale }],
-              // @ts-expect-error transformOrigin je web-only vlastnost (funguje
-              // díky react-native-web), TypeScript definice pro RN ji nezná.
-              transformOrigin: 'top left',
-            }}>
-            {webContent}
+            style={[
+              styles.webPhoneBox,
+              { width: boxWidth, height: boxHeight, borderWidth, borderRadius },
+            ]}>
+            <View
+              style={{
+                width: REFERENCE_WIDTH,
+                height: REFERENCE_HEIGHT,
+                alignSelf: 'center',
+                transform: [{ scale }],
+                // @ts-expect-error transformOrigin je web-only vlastnost (funguje
+                // díky react-native-web), TypeScript definice pro RN ji nezná.
+                transformOrigin: 'top left',
+              }}>
+              {webContent}
+            </View>
+
+            {/* Dynamic Island - čistě dekorativní, škáluje se spolu s
+                velikostí boxu (na malém boxu menší, na velkém větší). */}
+            <View
+              pointerEvents="none"
+              style={[
+                styles.dynamicIsland,
+                {
+                  width: 126 * scale,
+                  height: 37 * scale,
+                  borderRadius: 20 * scale,
+                  top: 14 * scale,
+                  marginLeft: (-126 * scale) / 2,
+                },
+              ]}
+            />
           </View>
+
+          {/* Postranní tlačítka - taky čistě dekorativní, poloha/velikost
+              škálovaná stejným poměrem jako celý box. */}
+          <View style={[styles.sideButtonRight, { width: 4 * scale, height: 70 * scale, top: 160 * scale, borderRadius: 2 * scale }]} />
+          <View style={[styles.sideButtonLeft, { width: 4 * scale, height: 32 * scale, top: 120 * scale, borderRadius: 2 * scale }]} />
+          <View style={[styles.sideButtonLeft, { width: 4 * scale, height: 60 * scale, top: 168 * scale, borderRadius: 2 * scale }]} />
         </View>
 
         {showSidePanels && <RightPanel />}
@@ -276,13 +306,35 @@ const styles = StyleSheet.create({
   webPhoneBox: {
     borderColor: '#1a1a1a',
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: '#0B2A1E',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.6,
     shadowRadius: 50,
     elevation: 24,
     flexShrink: 0,
+  },
+  phoneShell: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  dynamicIsland: {
+    position: 'absolute',
+    left: '50%',
+    backgroundColor: '#000000',
+    zIndex: 10,
+  },
+  sideButtonRight: {
+    position: 'absolute',
+    right: -4,
+    backgroundColor: '#1a1a1a',
+  },
+  sideButtonLeft: {
+    position: 'absolute',
+    left: -4,
+    backgroundColor: '#1a1a1a',
   },
   infoButton: {
     position: 'absolute',
@@ -386,4 +438,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     flex: 1,
   },
+  webContentPadding: {
+  flex: 1,
+  paddingTop: 54,
+  paddingLeft: 8.5,
+  // paddingLeft/paddingRight sem klidně přidejte stejným způsobem,
+  // až budete chtít doladit posun doleva/doprava
+},
 });
